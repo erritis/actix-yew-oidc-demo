@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "src/backend"
+		},
+		{
+			"path": "src/web"
+		},
+		// {
+		// 	"path": "../../../Guides/rust/yew-oauth2"
+		// },
+		// {
+		// 	"path": "../../../Guides/rust/yew-notifications"
+		// }
+	],
+	"settings": {}
+}

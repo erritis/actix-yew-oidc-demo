@@ -1,0 +1,4 @@
+version: 0.1
+env:
+  - name: ISSUER
+    value: http://keycloak.actix-yew-oidc.test/realms/actix-yew-demo

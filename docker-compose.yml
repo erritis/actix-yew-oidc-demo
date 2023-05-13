@@ -1,0 +1,108 @@
+version: "3.8"
+
+services:
+  actix-yew-oidc-keycloakdb:
+    container_name: actix-yew-oidc-keycloakdb
+    image: postgres:12.9
+    volumes:
+      - keycloakdb:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h actix-yew-oidc-keycloakdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - actix-yew-oidc-network
+
+  actix-yew-oidc-keycloak:
+    container_name: actix-yew-oidc-keycloak
+    image: quay.io/keycloak/keycloak:19.0.3
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/ready" ]
+      interval: 20s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://actix-yew-oidc-keycloakdb:5432/postgres
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_FEATURES:
+        token-exchange
+      KC_HOSTNAME_STRICT: 'false'
+      KC_HOSTNAME_STRICT_HTTPS: 'false'
+      KC_HOSTNAME_STRICT_BACKCHANNEL: 'false'
+      KC_HTTP_ENABLED: 'true'
+      PROXY_ADDRESS_FORWARDING: 'true'
+      KC_CACHE_STACK: tcp
+      KC_HEALTH_ENABLED: 'true'
+    volumes:
+      - ./.keycloak:/opt/keycloak/data/import/:ro
+    command:
+      - "start"
+      - "--http-port 8080"
+      - "--proxy=passthrough"
+      - "--import-realm"
+    ports:
+      - 8585:8080
+    depends_on:
+      - actix-yew-oidc-keycloakdb
+    networks:
+      - actix-yew-oidc-network
+
+  actix-yew-oidc-backend:
+    container_name: actix-yew-oidc-backend
+    image: actix-yew-oidc-backend
+    build: ./src/backend
+    deploy:
+      replicas: 1
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
+      interval: 20s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+    environment:
+      AUTHORITY: http://actix-yew-oidc-keycloak:8080/realms/actix-yew-demo
+    depends_on:
+      - actix-yew-oidc-keycloak
+    ports:
+      - "8080:8080"
+    networks:
+      - actix-yew-oidc-network
+
+  actix-yew-oidc-web:
+    container_name: actix-yew-oidc-web
+    image: actix-yew-oidc-web
+    build: .
+    deploy:
+      replicas: 1
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000" ]
+      interval: 20s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+    ports:
+      - "3000:3000"
+    depends_on:
+      - actix-yew-oidc-keycloak
+    networks:
+      - actix-yew-oidc-network
+
+networks:
+  actix-yew-oidc-network:
+    name: actix-yew-oidc-network
+    driver: bridge
+
+volumes:
+  keycloakdb:
+    driver: local

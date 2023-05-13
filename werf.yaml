@@ -1,0 +1,15 @@
+configVersion: 1
+project: actix-yew-oidc-demo
+---
+image: actix_yew_oidc_backend
+dockerfile: Dockerfile
+context: ./src/backend
+---
+# image: actix_yew_oidc_web
+# dockerfile: Dockerfile
+# context: ./src/web
+# args: {
+#   REACT_APP_KEYCLOAK_CLIENT_ID: web,
+#   REACT_APP_KEYCLOAK_URL: http://keycloak.actix-yew-oidc.test/realms/actix-yew-demo,
+#   REACT_APP_BACKEND_URL: http://backend.actix-yew-oidc.test
+# }

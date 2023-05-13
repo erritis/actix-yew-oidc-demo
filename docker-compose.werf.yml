@@ -1,0 +1,126 @@
+version: "3.8"
+
+services:
+  actix-yew-oidc-keycloakdb:
+    container_name: actix-yew-oidc-keycloakdb
+    image: postgres:12.9
+    labels:
+      kompose.controller.type: "statefulset"
+    volumes:
+      - keycloakdb:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "/bin/sh", "-c", "exec pg_isready -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - actix-yew-oidc-network
+
+  actix-yew-oidc-keycloak:
+    container_name: actix-yew-oidc-keycloak
+    image: quay.io/keycloak/keycloak:19.0.3
+    labels:
+      kompose.service.expose: "keycloak.actix-yew-oidc.test"
+      # kompose.service.expose.tls-secret: "actix-yew-oidc-keycloak-secret"
+      kompose.service.expose.ingress-class-name: "nginx"
+      # cert-manager.io/cluster-issuer: cert-manager-issuer
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/ready" ]
+      interval: 20s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://actix-yew-oidc-keycloakdb:5432/postgres
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_FEATURES:
+        token-exchange
+      KC_HOSTNAME_STRICT: 'false'
+      KC_HOSTNAME_STRICT_HTTPS: 'false'
+      KC_HOSTNAME_STRICT_BACKCHANNEL: 'false'
+      KC_HTTP_ENABLED: 'true'
+      PROXY_ADDRESS_FORWARDING: 'true'
+      KC_CACHE_STACK: tcp
+      KC_HEALTH_ENABLED: 'true'
+    configs:
+      - source: keycloak-realm
+        target: /opt/keycloak/data/import/realm-export.json
+    ports:
+      - "80:8080"
+    command:
+      - "start"
+      - "--http-port 8080"
+      - "--proxy=passthrough"
+      - "--import-realm"
+    depends_on:
+      - actix-yew-oidc-keycloakdb
+    networks:
+      - actix-yew-oidc-network
+
+  actix-yew-oidc-backend:
+    container_name: actix-yew-oidc-backend
+    image: "{{ .Values.werf.image.actix_yew_oidc_backend }}"
+    labels:
+      kompose.service.expose: "backend.actix-yew-oidc.test"
+      # kompose.service.expose.tls-secret: "actix-yew-oidc-backend-secret"
+      kompose.service.expose.ingress-class-name: "nginx"
+      # cert-manager.io/cluster-issuer: cert-manager-issuer
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
+      interval: 20s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+    ports:
+      - "80:8080"
+    environment:
+      ISSUER: http://keycloak.actix-yew-oidc.test/realms/actix-yew-demo
+    depends_on:
+      - actix-yew-oidc-keycloak
+    networks:
+      - actix-yew-oidc-network
+
+  
+  actix-yew-oidc-web:
+    container_name: actix-yew-oidc-web
+    image: "{{ .Values.werf.image.actix_yew_oidc_web }}"
+    labels:
+      kompose.service.expose: "actix-yew-oidc.test"
+      # kompose.service.expose.tls-secret: "actix-yew-oidc-web-secret"
+      kompose.service.expose.ingress-class-name: "nginx"
+      # cert-manager.io/cluster-issuer: cert-manager-issuer
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000" ]
+      interval: 20s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+    ports:
+      - "80:3000"
+    depends_on:
+      - actix-yew-oidc-keycloak
+    networks:
+      - actix-yew-oidc-network
+
+
+
+networks:
+  actix-yew-oidc-network:
+    name: actix-yew-oidc-network
+
+configs:
+  keycloak-realm:
+    file: ./.keycloak/realm-export.json
+
+volumes:
+  keycloakdb:
+    driver: local

@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f docker-compose.werf.yml -o ./.helm/templates
+    kompose.controller.type: statefulset
+    kompose.service.expose: keycloakdb.actix-yew-oidc.test
+    kompose.service.expose.ingress-class-name: nginx
+    kompose.version: 1.28.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: actix-yew-oidc-keycloakdb
+  name: actix-yew-oidc-keycloakdb
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: keycloakdb.actix-yew-oidc.test
+      http:
+        paths:
+          - backend:
+              service:
+                name: actix-yew-oidc-keycloakdb
+                port:
+                  number: 5432
+            path: /
+            pathType: Prefix
+status:
+  loadBalancer: {}
